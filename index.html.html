@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>다국적 기업의 공간적 분업 시뮬레이션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  :root{
+    --ink:#16323a;
+    --paper:#f3f6f5;
+    --panel:#ffffff;
+    --teal:#1f7a68;
+    --teal-dark:#155448;
+    --amber:#e0972e;
+    --line:#d8e2e0;
+
+    --role-hq:#1f7a68;
+    --role-rnd:#2f6fb0;
+    --role-sales:#c65b2e;
+    --role-factory:#8a4fae;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Noto Sans KR', sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  h1,h2,h3, .display{
+    font-family:'Space Grotesk','Noto Sans KR',sans-serif;
+  }
+  .app{
+    max-width:980px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  header.top{
+    padding:28px 28px 18px;
+    border-bottom:1px solid var(--line);
+    background:var(--panel);
+  }
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--teal);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  header.top h1{
+    margin:0 0 4px;
+    font-size:26px;
+    font-weight:700;
+  }
+  header.top p{
+    margin:0;
+    color:#4a625f;
+    font-size:14px;
+  }
+  .progress{
+    display:flex;
+    gap:8px;
+    margin-top:18px;
+  }
+  .progress button{
+    flex:1;
+    border:none;
+    background:var(--line);
+    height:6px;
+    border-radius:4px;
+    cursor:pointer;
+    padding:0;
+    position:relative;
+  }
+  .progress button.active{ background:var(--teal); }
+  .progress-labels{
+    display:flex;
+    gap:8px;
+    margin-top:8px;
+  }
+  .progress-labels span{
+    flex:1;
+    font-size:11.5px;
+    color:#8a9d9a;
+    text-align:center;
+  }
+  .progress-labels span.active{ color:var(--teal-dark); font-weight:700; }
+
+  main{
+    flex:1;
+    padding:32px 28px 40px;
+  }
+  .page{ display:none; animation:fade .35s ease; }
+  .page.active{ display:block; }
+  @keyframes fade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  .step-title{
+    font-size:21px;
+    font-weight:700;
+    margin:0 0 6px;
+  }
+  .step-desc{
+    font-size:14px;
+    color:#516e6a;
+    margin:0 0 26px;
+    line-height:1.6;
+  }
+
+  /* Page 1 : role selectors */
+  .role-block{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px 22px;
+    margin-bottom:16px;
+  }
+  .role-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .role-icon{
+    width:30px; height:30px;
+    border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff;
+    font-size:15px;
+    flex-shrink:0;
+  }
+  .role-head h3{
+    margin:0;
+    font-size:16.5px;
+  }
+  .role-head .role-selected{
+    margin-left:auto;
+    font-size:12.5px;
+    color:#7a8c89;
+  }
+  .role-head .role-selected b{ color:var(--ink); }
+
+  .chip-grid{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:8px;
+  }
+  .chip{
+    border:1.5px solid var(--line);
+    background:#fbfdfc;
+    border-radius:9px;
+    padding:9px 4px;
+    font-size:13.5px;
+    font-weight:600;
+    text-align:center;
+    cursor:pointer;
+    color:#556e6a;
+    transition:all .15s ease;
+  }
+  .chip:hover{ border-color:#b9cbc8; }
+  .chip.selected{
+    color:#fff;
+    border-color:transparent;
+  }
+
+  /* Page 2 */
+  .org-inputs{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:28px;
+  }
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--teal-dark);
+    margin-bottom:6px;
+  }
+  .field input{
+    width:100%;
+    padding:11px 13px;
+    border:1.5px solid var(--line);
+    border-radius:9px;
+    font-size:14.5px;
+    font-family:inherit;
+    background:var(--panel);
+  }
+  .field input:focus{ outline:2px solid var(--teal); outline-offset:1px; }
+
+  .orgchart{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:32px 20px 26px;
+  }
+  .orgchart .company-name{
+    text-align:center;
+    font-size:19px;
+    font-weight:700;
+    margin-bottom:2px;
+  }
+  .orgchart .company-product{
+    text-align:center;
+    font-size:12.5px;
+    color:#7a8c89;
+    margin-bottom:22px;
+  }
+  .chart-trunk{
+    display:flex;
+    justify-content:center;
+    margin-bottom:6px;
+  }
+  .node-hq{
+    border:2px solid var(--role-hq);
+    color:var(--role-hq);
+    background:#effaf6;
+    border-radius:11px;
+    padding:12px 26px;
+    font-weight:700;
+    font-size:14.5px;
+    text-align:center;
+    min-width:170px;
+  }
+  .node-hq small{
+    display:block;
+    font-weight:500;
+    font-size:11.5px;
+    color:#4a625f;
+    margin-top:3px;
+  }
+  .connector{
+    height:26px;
+    width:2px;
+    background:var(--line);
+    margin:0 auto;
+  }
+  .branches{
+    display:flex;
+    justify-content:center;
+    position:relative;
+    padding-top:2px;
+  }
+  .branches::before{
+    content:"";
+    position:absolute;
+    top:0;
+    left:16.6%;
+    right:16.6%;
+    height:2px;
+    background:var(--line);
+  }
+  .branch-col{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:0 8px;
+  }
+  .branch-col .stem{
+    width:2px; height:22px;
+    background:var(--line);
+  }
+  .node{
+    border-radius:11px;
+    padding:12px 10px;
+    text-align:center;
+    font-weight:700;
+    font-size:13.5px;
+    width:100%;
+    color:#fff;
+  }
+  .node small{
+    display:block;
+    font-weight:500;
+    font-size:11px;
+    opacity:.92;
+    margin-top:3px;
+  }
+
+  /* Page 3 : logo + table */
+  .logo-card{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px 22px;
+    margin-bottom:20px;
+  }
+  .logo-badge{
+    width:64px; height:64px;
+    border-radius:18px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:32px;
+    line-height:1;
+    flex-shrink:0;
+    box-shadow:0 4px 10px rgba(0,0,0,.14);
+    transition:background .2s ease;
+  }
+  .logo-name{
+    font-size:19px;
+    font-weight:700;
+  }
+  .logo-accent{
+    height:3px;
+    width:36px;
+    border-radius:2px;
+    margin:5px 0 6px;
+  }
+  .logo-product{
+    font-size:12.5px;
+    color:#7a8c89;
+  }
+
+  table.reason-table{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+  }
+  table.reason-table th{
+    background:#eef4f2;
+    color:var(--teal-dark);
+    font-size:12.5px;
+    text-align:left;
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  table.reason-table td{
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+    vertical-align:top;
+  }
+  table.reason-table tr:last-child td{ border-bottom:none; }
+  .org-tag{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-weight:700;
+    font-size:13.5px;
+  }
+  .org-tag .dot{
+    width:9px; height:9px; border-radius:3px;
+  }
+  .loc-pill{
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:999px;
+    background:#eef4f2;
+    color:var(--teal-dark);
+    font-weight:700;
+    font-size:12.5px;
+  }
+  .reason-table textarea{
+    width:100%;
+    min-height:56px;
+    border:1.5px solid var(--line);
+    border-radius:8px;
+    padding:8px 10px;
+    font-family:inherit;
+    font-size:13.5px;
+    resize:vertical;
+  }
+  .reason-table textarea:focus{ outline:2px solid var(--teal); outline-offset:1px; }
+
+  /* Page 4 : map */
+  .map-wrap{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+  }
+  .legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:16px;
+    margin-bottom:14px;
+    font-size:12.5px;
+  }
+  .legend .item{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    color:#4a625f;
+    font-weight:600;
+  }
+  .legend .swatch{
+    width:16px; height:16px;
+    border-radius:5px;
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;
+    font-size:10px;
+  }
+  #mapContainer{
+    width:100%;
+    height:420px;
+    border-radius:10px;
+    overflow:hidden;
+    z-index:0;
+  }
+  .marker-pin{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    font-size:11px;
+    font-weight:700;
+    border-radius:50%;
+    border:2px solid #fff;
+    box-shadow:0 1px 5px rgba(0,0,0,.3);
+  }
+  .marker-pin span{ font-size:9px; margin-left:1px; }
+
+  .reflect{
+    margin-top:22px;
+  }
+  .reflect label{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--teal-dark);
+    margin-bottom:6px;
+  }
+  .reflect textarea{
+    width:100%;
+    min-height:80px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    padding:12px 14px;
+    font-family:inherit;
+    font-size:14px;
+    resize:vertical;
+  }
+  .reflect textarea:focus{ outline:2px solid var(--teal); outline-offset:1px; }
+
+  /* Submit row */
+  .submit-row{
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+    padding:16px 28px;
+    background:#fff6e8;
+    border-top:1px solid #f0dfb8;
+    animation:fade .3s ease;
+  }
+  .submit-msg{
+    font-size:13.5px;
+    font-weight:600;
+    color:#8a5a10;
+  }
+  .submit-row .navbtn{
+    background:var(--amber);
+    border-color:var(--amber);
+    color:#fff;
+  }
+  .submit-row .navbtn:disabled{ opacity:.6; }
+
+  footer.nav{
+    border-top:1px solid var(--line);
+    background:var(--panel);
+    padding:16px 28px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .navbtn{
+    border:1.5px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    padding:10px 20px;
+    border-radius:9px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .navbtn.primary{
+    background:var(--teal);
+    border-color:var(--teal);
+    color:#fff;
+  }
+  .navbtn:disabled{
+    opacity:.35;
+    cursor:not-allowed;
+  }
+  .navbtn:not(:disabled):hover{ filter:brightness(0.97); }
+  .navcenter{
+    font-size:12.5px;
+    color:#8a9d9a;
+    font-weight:600;
+  }
+
+  @media (max-width:640px){
+    .chip-grid{ grid-template-columns:repeat(5,1fr); }
+    .org-inputs{ grid-template-columns:1fr; }
+    header.top, main, footer.nav, .submit-row{ padding-left:16px; padding-right:16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="eyebrow">세계시민과 지리 · 1단원 + 3단원</div>
+    <h1>다국적 기업 A사, 어디에 조직을 세울까?</h1>
+    <p>합리적 선택의 개념으로 이해하는 다국적 기업의 공간적 분업 시뮬레이션</p>
+    <div class="progress">
+      <button data-goto="1" class="active"></button>
+      <button data-goto="2"></button>
+      <button data-goto="3"></button>
+      <button data-goto="4"></button>
+    </div>
+    <div class="progress-labels">
+      <span class="active">① 도시 선택</span>
+      <span>② 조직도 완성</span>
+      <span>③ 이유 정리</span>
+      <span>④ 지도에 표시</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- PAGE 1 -->
+    <section class="page active" id="page-1">
+      <h2 class="step-title">STEP 1. 조직별 입지 도시 선택하기</h2>
+      <p class="step-desc">우리 기업의 <b>본사 · 연구소 · 판매지점 · 생산공장</b>을 각각 어느 가상 도시에 세울지 하나씩 선택하세요.
+      가상 도시는 실제 도시명이 아니라 A~J의 알파벳으로만 표시됩니다. (같은 도시를 여러 조직이 선택할 수도 있어요.)</p>
+      <div id="role-blocks"></div>
+    </section>
+
+    <!-- PAGE 2 -->
+    <section class="page" id="page-2">
+      <h2 class="step-title">STEP 2. 기업 조직도 완성하기</h2>
+      <p class="step-desc">우리 기업의 이름과 주력 상품을 정하고, STEP 1에서 선택한 도시가 반영된 조직도를 확인해보세요.</p>
+
+      <div class="org-inputs">
+        <div class="field">
+          <label>기업명</label>
+          <input id="companyName" type="text" placeholder="예: 글로컬 전자">
+        </div>
+        <div class="field">
+          <label>주력 상품</label>
+          <input id="companyProduct" type="text" placeholder="예: 스마트폰">
+        </div>
+      </div>
+
+      <div class="orgchart">
+        <div class="company-name" id="chartCompanyName">기업명을 입력해주세요</div>
+        <div class="company-product" id="chartCompanyProduct">주력 상품을 입력해주세요</div>
+
+        <div class="chart-trunk">
+          <div class="node-hq" id="hqNode">본사<small id="hqLoc">도시를 선택해주세요</small></div>
+        </div>
+        <div class="connector"></div>
+        <div class="branches" id="branchWrap"></div>
+      </div>
+    </section>
+
+    <!-- PAGE 3 -->
+    <section class="page" id="page-3">
+      <h2 class="step-title">STEP 3. 입지 선정 이유 정리하기</h2>
+      <p class="step-desc">STEP 2에서 완성한 기업의 로고와 함께, 각 조직을 그 도시에 입지시킨 이유를 정리해보세요.</p>
+
+      <div class="logo-card" id="logoCard">
+        <div class="logo-badge" id="logoBadge">📦</div>
+        <div>
+          <div class="logo-name" id="logoName">기업명을 입력해주세요</div>
+          <div class="logo-accent" id="logoAccent"></div>
+          <div class="logo-product" id="logoProduct">주력 상품을 입력해주세요</div>
+        </div>
+      </div>
+
+      <table class="reason-table">
+        <thead>
+          <tr><th style="width:22%">조직</th><th style="width:18%">입지 도시</th><th>이 도시를 선택한 이유</th></tr>
+        </thead>
+        <tbody id="reasonBody"></tbody>
+      </table>
+    </section>
+
+    <!-- PAGE 4 -->
+    <section class="page" id="page-4">
+      <h2 class="step-title">STEP 4. 세계지도에 표시하기</h2>
+      <p class="step-desc">STEP 1에서 선택한 결과가 실제 세계지도 위 위치에 자동으로 표시됩니다. 선택한 도시들이 서로 멀리 떨어져 있으면 지도가 자동으로 축소되어 전체 위치를 한눈에 볼 수 있어요. (가상 도시 알파벳만 표시되며, 실제 도시명은 알려주지 않아요.)</p>
+
+      <div class="map-wrap">
+        <div class="legend" id="mapLegend"></div>
+        <div id="mapContainer"></div>
+      </div>
+
+      <div class="reflect">
+        <label>지도에 표시된 결과를 보고, 어떤 공간적 패턴이 나타나는지 서술해보세요.</label>
+        <textarea id="reflection" placeholder="예: 본사와 연구소는 ○○ 지역에 몰려 있고, 생산공장은 ○○ 지역에 있다. 그 이유는..."></textarea>
+      </div>
+    </section>
+  </main>
+
+  <div class="submit-row" id="submitRow">
+    <div class="submit-msg">🎉 모든 활동을 완료했어요! 버튼을 누르면 결과가 PDF 파일로 바로 다운로드됩니다.</div>
+    <button class="navbtn" id="submitBtn">📄 PDF로 저장해서 제출하기</button>
+  </div>
+
+  <footer class="nav">
+    <button class="navbtn" id="prevBtn">← 이전</button>
+    <span class="navcenter" id="pageIndicator">1 / 4</span>
+    <button class="navbtn primary" id="nextBtn">다음 →</button>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+  const ROLES = [
+    { key:'본사',     icon:'★', hex:'#1f7a68' },
+    { key:'연구소',   icon:'◆', hex:'#2f6fb0' },
+    { key:'판매지점', icon:'■', hex:'#c65b2e' },
+    { key:'생산공장', icon:'●', hex:'#8a4fae' },
+  ];
+
+  // 가상도시 A~J가 실제로 위치할 좌표 (학생에게는 알파벳으로만 노출, 실제 지명은 노출하지 않음)
+  const CITY_COORDS = {
+    a:{lat:38.9072, lng:-77.0369},   // 가상도시 A
+    b:{lat:52.5200, lng:13.4050},    // 가상도시 B
+    c:{lat:19.4326, lng:-99.1332},   // 가상도시 C
+    d:{lat:4.7110,  lng:-74.0721},   // 가상도시 D
+    e:{lat:21.0278, lng:105.8342},   // 가상도시 E
+    f:{lat:39.9042, lng:116.4074},   // 가상도시 F
+    g:{lat:35.6895, lng:139.6917},   // 가상도시 G
+    h:{lat:37.5665, lng:126.9780},   // 가상도시 H
+    i:{lat:28.6139, lng:77.2090},    // 가상도시 I
+    j:{lat:48.8566, lng:2.3522},     // 가상도시 J
+  };
+  // PDF용 간이 세계지도(도식화) 좌표 - 위 실제 좌표와 대략 대응
+  const SCHEMATIC_POS = {
+    a:{x:180,y:150}, b:{x:520,y:120}, c:{x:150,y:220}, d:{x:235,y:290},
+    e:{x:700,y:250}, f:{x:695,y:185}, g:{x:790,y:180}, h:{x:762,y:170},
+    i:{x:630,y:225}, j:{x:480,y:145}
+  };
+  const LETTERS = Object.keys(CITY_COORDS);
+  const LOGO_PALETTE = ['#1f7a68','#2f6fb0','#c65b2e','#8a4fae','#c2932e','#3a8fa0'];
+
+  // 주력 상품 키워드 → 아이콘(이모지) 매핑
+  const ICON_RULES = [
+    ['스마트폰','📱'],['휴대폰','📱'],['폰','📱'],
+    ['자동차','🚗'],['차량','🚗'],['타이어','🛞'],
+    ['옷','👕'],['의류','👕'],['패션','👗'],['신발','👟'],['운동화','👟'],
+    ['가방','👜'],['백팩','🎒'],['시계','⌚'],['보석','💎'],['주얼리','💎'],
+    ['커피','☕'],['음료','🥤'],['주스','🥤'],['우유','🥛'],['치즈','🧀'],
+    ['초콜릿','🍫'],['과자','🍪'],['빵','🍞'],['식품','🍽️'],['음식','🍽️'],
+    ['화장품','💄'],['향수','🧴'],['가구','🛋️'],['장난감','🧸'],['완구','🧸'],
+    ['책','📚'],['도서','📚'],['음악','🎵'],['악기','🎸'],['영화','🎬'],['드라마','🎬'],
+    ['게임','🎮'],['컴퓨터','💻'],['노트북','💻'],['TV','📺'],['텔레비전','📺'],
+    ['냉장고','🧊'],['세탁기','🫧'],['가전','🔌'],['카메라','📷'],
+    ['반도체','💾'],['칩','💾'],['에너지','⚡'],['전기','⚡'],['배터리','🔋'],
+    ['석유','🛢️'],['화학','🧪'],['철강','🏗️'],['금속','⚙️'],
+    ['항공','✈️'],['비행기','✈️'],['선박','🚢'],['배','🚢'],
+    ['농산물','🌾'],['쌀','🌾'],['곡물','🌾'],['채소','🥦'],['과일','🍎'],
+    ['고기','🥩'],['육류','🥩'],['생선','🐟'],['수산물','🐟'],
+    ['제약','💊'],['약','💊'],['의료','🩺'],
+    ['은행','🏦'],['금융','🏦'],['보험','🏦'],['스포츠','🏀'],['운동','🏀'],
+  ];
+  function iconFor(product){
+    if(!product) return '📦';
+    for(const [kw,icon] of ICON_RULES){ if(product.includes(kw)) return icon; }
+    return '📦';
+  }
+  function hashColor(str){
+    let h = 0;
+    for(let i=0;i<str.length;i++){ h = str.charCodeAt(i) + ((h<<5)-h); }
+    return LOGO_PALETTE[Math.abs(h) % LOGO_PALETTE.length];
+  }
+  function hexToRgb(hex){
+    const v = hex.replace('#','');
+    return [parseInt(v.substr(0,2),16), parseInt(v.substr(2,2),16), parseInt(v.substr(4,2),16)];
+  }
+
+  const state = {
+    selections: { 본사:null, 연구소:null, 판매지점:null, 생산공장:null },
+    companyName:'', companyProduct:'',
+    reasons: { 본사:'', 연구소:'', 판매지점:'', 생산공장:'' },
+    reflection:''
+  };
+
+  let currentPage = 1;
+
+  /* ---------- PAGE 1 : role chip build ---------- */
+  const roleBlocksEl = document.getElementById('role-blocks');
+  ROLES.forEach(role=>{
+    const block = document.createElement('div');
+    block.className = 'role-block';
+    block.innerHTML = `
+      <div class="role-head">
+        <div class="role-icon" style="background:${role.hex}">${role.icon}</div>
+        <h3>${role.key}</h3>
+        <div class="role-selected">선택: <b id="sel-${role.key}">-</b></div>
+      </div>
+      <div class="chip-grid" id="chips-${role.key}"></div>
+    `;
+    roleBlocksEl.appendChild(block);
+
+    const chipGrid = block.querySelector(`#chips-${role.key}`);
+    LETTERS.forEach(letter=>{
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = '가상도시 ' + letter.toUpperCase();
+      chip.addEventListener('click', ()=>{
+        state.selections[role.key] = letter;
+        renderAll();
+      });
+      chip.dataset.letter = letter;
+      chipGrid.appendChild(chip);
+    });
+  });
+
+  function refreshChips(){
+    ROLES.forEach(role=>{
+      const chips = document.querySelectorAll(`#chips-${role.key} .chip`);
+      chips.forEach(chip=>{
+        const isSel = state.selections[role.key] === chip.dataset.letter;
+        chip.classList.toggle('selected', isSel);
+        chip.style.background = isSel ? role.hex : '';
+      });
+      document.getElementById(`sel-${role.key}`).textContent =
+        state.selections[role.key] ? '가상도시 ' + state.selections[role.key].toUpperCase() : '-';
+    });
+  }
+
+  /* ---------- PAGE 2 : org chart ---------- */
+  const companyNameInput = document.getElementById('companyName');
+  const companyProductInput = document.getElementById('companyProduct');
+  companyNameInput.addEventListener('input', e=>{ state.companyName = e.target.value; renderAll(); });
+  companyProductInput.addEventListener('input', e=>{ state.companyProduct = e.target.value; renderAll(); });
+
+  function locLabel(role){
+    const letter = state.selections[role];
+    return letter ? '가상도시 ' + letter.toUpperCase() : '도시를 선택해주세요';
+  }
+
+  function renderChart(){
+    document.getElementById('chartCompanyName').textContent = state.companyName || '기업명을 입력해주세요';
+    document.getElementById('chartCompanyProduct').textContent = state.companyProduct ? '주력 상품: ' + state.companyProduct : '주력 상품을 입력해주세요';
+    document.getElementById('hqLoc').textContent = locLabel('본사');
+
+    const branchWrap = document.getElementById('branchWrap');
+    branchWrap.innerHTML = '';
+    ROLES.filter(r=>r.key!=='본사').forEach(role=>{
+      const col = document.createElement('div');
+      col.className = 'branch-col';
+      col.innerHTML = `
+        <div class="stem"></div>
+        <div class="node" style="background:${role.hex}">${role.icon} ${role.key}<small>${locLabel(role.key)}</small></div>
+      `;
+      branchWrap.appendChild(col);
+    });
+  }
+
+  /* ---------- PAGE 3 : logo + reason table ---------- */
+  function renderLogo(){
+    const name = state.companyName.trim();
+    const product = state.companyProduct.trim();
+    const color = name ? hashColor(name + product) : '#9db3af';
+    const badge = document.getElementById('logoBadge');
+    badge.textContent = iconFor(product);
+    badge.style.background = color;
+    document.getElementById('logoAccent').style.background = color;
+    document.getElementById('logoName').textContent = name || '기업명을 입력해주세요';
+    document.getElementById('logoProduct').textContent = product ? '주력 상품 · ' + product : '주력 상품을 입력해주세요';
+  }
+
+  const reasonBody = document.getElementById('reasonBody');
+  function renderReasonTable(){
+    reasonBody.innerHTML = '';
+    ROLES.forEach(role=>{
+      const tr = document.createElement('tr');
+      const letter = state.selections[role.key];
+      tr.innerHTML = `
+        <td><span class="org-tag"><span class="dot" style="background:${role.hex}"></span>${role.icon} ${role.key}</span></td>
+        <td><span class="loc-pill">${letter ? '가상도시 ' + letter.toUpperCase() : '미선택'}</span></td>
+        <td><textarea data-role="${role.key}" placeholder="이 도시를 선택한 이유를 적어보세요.">${state.reasons[role.key]}</textarea></td>
+      `;
+      reasonBody.appendChild(tr);
+    });
+    reasonBody.querySelectorAll('textarea').forEach(ta=>{
+      ta.addEventListener('input', e=>{
+        state.reasons[e.target.dataset.role] = e.target.value;
+        checkCompletion();
+      });
+    });
+  }
+
+  /* ---------- PAGE 4 : Leaflet map ---------- */
+  const mapLegend = document.getElementById('mapLegend');
+  ROLES.forEach(role=>{
+    const item = document.createElement('div');
+    item.className = 'item';
+    item.innerHTML = `<span class="swatch" style="background:${role.hex}">${role.icon}</span>${role.key}`;
+    mapLegend.appendChild(item);
+  });
+
+  let map, markersLayer, lastCityKey = null;
+  function initMap(){
+    map = L.map('mapContainer', { scrollWheelZoom:false }).setView([20, 20], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'&copy; OpenStreetMap contributors',
+      maxZoom:9,
+      minZoom:2
+    }).addTo(map);
+    markersLayer = L.layerGroup().addTo(map);
+  }
+
+  function renderMap(){
+    if(!markersLayer) return;
+    markersLayer.clearLayers();
+
+    const byCity = {};
+    ROLES.forEach(role=>{
+      const letter = state.selections[role.key];
+      if(!letter) return;
+      if(!byCity[letter]) byCity[letter] = [];
+      byCity[letter].push(role);
+    });
+
+    const cityKeys = Object.keys(byCity).sort();
+
+    cityKeys.forEach(letter=>{
+      const base = CITY_COORDS[letter];
+      const rolesHere = byCity[letter];
+      const n = rolesHere.length;
+      rolesHere.forEach((role, i)=>{
+        const spread = 0.55;
+        const dLat = n>1 ? (Math.sin((Math.PI*2*i)/n) * spread) : 0;
+        const dLng = n>1 ? (Math.cos((Math.PI*2*i)/n) * spread) : 0;
+
+        const icon = L.divIcon({
+          className:'',
+          html:`<div class="marker-pin" style="width:28px;height:28px;background:${role.hex}">${role.icon}<span>${letter.toUpperCase()}</span></div>`,
+          iconSize:[28,28],
+          iconAnchor:[14,14]
+        });
+
+        L.marker([base.lat + dLat, base.lng + dLng], { icon })
+          .bindTooltip(`${role.icon} ${role.key} · 가상도시 ${letter.toUpperCase()}`)
+          .addTo(markersLayer);
+      });
+    });
+
+    const key = cityKeys.join(',');
+    if(key !== lastCityKey){
+      lastCityKey = key;
+      const layers = markersLayer.getLayers();
+      if(layers.length > 0){
+        const group = L.featureGroup(layers);
+        map.fitBounds(group.getBounds().pad(0.35), { maxZoom: layers.length > 1 ? 5 : 6 });
+      } else {
+        map.setView([20, 20], 2);
+      }
+    }
+  }
+
+  document.getElementById('reflection').addEventListener('input', e=>{
+    state.reflection = e.target.value;
+    checkCompletion();
+  });
+
+  /* ---------- 완료 여부 확인 ---------- */
+  function isComplete(){
+    const rolesDone = ROLES.every(r => !!state.selections[r.key] && state.reasons[r.key].trim().length > 0);
+    return rolesDone
+      && state.companyName.trim().length > 0
+      && state.companyProduct.trim().length > 0
+      && state.reflection.trim().length > 0;
+  }
+
+  function checkCompletion(){
+    document.getElementById('submitRow').style.display = isComplete() ? 'flex' : 'none';
+  }
+
+  /* ---------- 아이콘을 캔버스에 그려 PDF에 넣을 이미지로 변환 ---------- */
+  function emojiToDataURL(emoji, bgColor){
+    const size = 160;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const r = 34;
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.moveTo(r,0);
+    ctx.arcTo(size,0,size,size,r);
+    ctx.arcTo(size,size,0,size,r);
+    ctx.arcTo(0,size,0,0,r);
+    ctx.arcTo(0,0,size,0,r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = Math.round(size*0.52) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, size/2, size/2 + size*0.05);
+    return canvas.toDataURL('image/png');
+  }
+
+  /* ---------- 실제 PDF 파일 생성 및 다운로드 ---------- */
+  function generatePDF(){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'pt', format:'a4' });
+    const marginX = 48;
+    const pageW = 595;
+    let y = 60;
+
+    const name = state.companyName.trim() || '(기업명 미입력)';
+    const product = state.companyProduct.trim() || '(주력 상품 미입력)';
+    const color = hashColor(name + product);
+
+    // --- 표지 : 로고 + 기업 정보 + 조직별 입지 도시 요약 ---
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(19);
+    doc.setTextColor(21,84,72);
+    doc.text('다국적 기업 공간적 분업 학습 결과지', marginX, y);
+    y += 12;
+    doc.setDrawColor(216,226,224);
+    doc.line(marginX, y, pageW-marginX, y);
+    y += 36;
+
+    const iconURL = emojiToDataURL(iconFor(product), color);
+    doc.addImage(iconURL, 'PNG', marginX, y, 58, 58);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(16);
+    doc.setTextColor(22,50,58);
+    doc.text(name, marginX+72, y+24);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    doc.setTextColor(122,140,137);
+    doc.text('주력 상품 · ' + product, marginX+72, y+42);
+    y += 86;
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(12.5);
+    doc.setTextColor(21,84,72);
+    doc.text('조직별 입지 도시', marginX, y);
+
+    const orgRows = ROLES.map(r => [
+      r.icon + '  ' + r.key,
+      state.selections[r.key] ? '가상도시 ' + state.selections[r.key].toUpperCase() : '미선택'
+    ]);
+    doc.autoTable({
+      startY: y + 10,
+      head: [['조직','입지 도시']],
+      body: orgRows,
+      margin: { left:marginX, right:marginX },
+      styles: { font:'helvetica', fontSize:10.5, cellPadding:7 },
+      headStyles: { fillColor:[31,122,104], textColor:255 }
+    });
+
+    // --- 페이지 2 : 입지 선정 이유 표 ---
+    doc.addPage();
+    y = 60;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(15);
+    doc.setTextColor(21,84,72);
+    doc.text('조직별 입지 선정 이유', marginX, y);
+
+    const reasonRows = ROLES.map(r => [
+      r.icon + '  ' + r.key,
+      state.selections[r.key] ? '가상도시 ' + state.selections[r.key].toUpperCase() : '-',
+      state.reasons[r.key] || '-'
+    ]);
+    doc.autoTable({
+      startY: y + 16,
+      head: [['조직','입지 도시','선정 이유']],
+      body: reasonRows,
+      margin: { left:marginX, right:marginX },
+      styles: { font:'helvetica', fontSize:10, cellPadding:7, valign:'top' },
+      headStyles: { fillColor:[31,122,104], textColor:255 },
+      columnStyles: { 2:{ cellWidth:300 } }
+    });
+
+    // --- 페이지 3 : 세계지도 배치(도식) + 성찰 ---
+    doc.addPage();
+    y = 60;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(15);
+    doc.setTextColor(21,84,72);
+    doc.text('세계지도 위 조직 배치', marginX, y);
+    y += 18;
+
+    const mapX = marginX, mapY = y, mapW = pageW - marginX*2, mapH = 230;
+    const scaleX = mapW/900, scaleY = mapH/380;
+
+    doc.setFillColor(231,240,238);
+    doc.setDrawColor(207,224,220);
+    const CONT = [
+      {cx:175,cy:175,rx:150,ry:100},{cx:245,cy:305,rx:95,ry:65},
+      {cx:500,cy:140,rx:105,ry:55},{cx:520,cy:270,rx:110,ry:80},
+      {cx:705,cy:210,rx:175,ry:110},{cx:790,cy:330,rx:65,ry:35},
+    ];
+    CONT.forEach(c=>{
+      doc.ellipse(mapX + c.cx*scaleX, mapY + c.cy*scaleY, c.rx*scaleX, c.ry*scaleY, 'FD');
+    });
+
+    const byCity = {};
+    ROLES.forEach(role=>{
+      const letter = state.selections[role.key];
+      if(!letter) return;
+      if(!byCity[letter]) byCity[letter] = [];
+      byCity[letter].push(role);
+    });
+    Object.keys(byCity).forEach(letter=>{
+      const base = SCHEMATIC_POS[letter];
+      const rolesHere = byCity[letter];
+      const n = rolesHere.length;
+      rolesHere.forEach((role,i)=>{
+        const offset = n>1 ? 14 : 0;
+        const angle = (Math.PI*2*i)/Math.max(n,1);
+        const mx = mapX + (base.x + Math.cos(angle)*offset) * scaleX;
+        const my = mapY + (base.y + Math.sin(angle)*offset) * scaleY;
+        const [rr,gg,bb] = hexToRgb(role.hex);
+        doc.setFillColor(rr,gg,bb);
+        doc.circle(mx, my, 6, 'F');
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(255,255,255);
+        doc.text(letter.toUpperCase(), mx, my+2.5, { align:'center' });
+      });
+    });
+
+    y = mapY + mapH + 36;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(12.5);
+    doc.setTextColor(21,84,72);
+    doc.text('학생 성찰', marginX, y);
+    y += 16;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(60,70,68);
+    const reflectLines = doc.splitTextToSize(state.reflection || '-', pageW - marginX*2);
+    doc.text(reflectLines, marginX, y);
+
+    const filename = (name.replace(/\s+/g,'_') || '기업') + '_공간적분업_결과.pdf';
+    doc.save(filename);
+  }
+
+  document.getElementById('submitBtn').addEventListener('click', ()=>{
+    if(!isComplete()) return;
+    generatePDF();
+  });
+
+  /* ---------- master render + navigation ---------- */
+  function renderAll(){
+    refreshChips();
+    renderChart();
+    renderLogo();
+    renderReasonTable();
+    renderMap();
+    checkCompletion();
+  }
+
+  initMap();
+  renderAll();
+
+  const pages = document.querySelectorAll('.page');
+  const progressBtns = document.querySelectorAll('.progress button');
+  const progressLabels = document.querySelectorAll('.progress-labels span');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const pageIndicator = document.getElementById('pageIndicator');
+
+  function goTo(n){
+    currentPage = n;
+    pages.forEach((p,i)=> p.classList.toggle('active', i === n-1));
+    progressBtns.forEach((b,i)=> b.classList.toggle('active', i === n-1));
+    progressLabels.forEach((l,i)=> l.classList.toggle('active', i === n-1));
+    prevBtn.disabled = n===1;
+    nextBtn.textContent = n===4 ? '완료 ✓' : '다음 →';
+    pageIndicator.textContent = n + ' / 4';
+    renderAll();
+    if(n===4 && map){
+      setTimeout(()=> map.invalidateSize(), 60);
+    }
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  progressBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=> goTo(parseInt(btn.dataset.goto)));
+  });
+  prevBtn.addEventListener('click', ()=>{ if(currentPage>1) goTo(currentPage-1); });
+  nextBtn.addEventListener('click', ()=>{ if(currentPage<4) goTo(currentPage+1); });
+
+  goTo(1);
+</script>
+</body>
+</html>
